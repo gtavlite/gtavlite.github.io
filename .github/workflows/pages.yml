@@ -1,0 +1,50 @@
+name: Deploy GitHub Pages
+
+# Situs tidak di-build di repo ini. Repo sumber (private) membangun situs
+# Hugo lewat push-sf.sh, mengunggah zip-nya ke SourceForge, lalu mendorong
+# empty commit ke sini. Workflow ini mengunduh zip itu, membongkarnya ke
+# public/, dan menerbitkannya sebagai GitHub Pages.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+env:
+  SITE_ZIP_URL: https://sourceforge.net/projects/wahyu6070-project-android/files/web/gta5lite-github/gta5lite-public.zip/download
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Unduh zip situs dari SourceForge
+        run: |
+          set -euo pipefail
+          wget -q --tries=5 --waitretry=10 -O site.zip "$SITE_ZIP_URL"
+          unzip -q site.zip -d public
+          test -f public/index.html || { echo "index.html tidak ada di akar zip"; exit 1; }
+          touch public/.nojekyll
+          du -sh public
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: public
+
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4
