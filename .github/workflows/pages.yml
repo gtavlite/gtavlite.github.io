@@ -23,12 +23,14 @@ env:
   SITE_ZIP_URL: https://sourceforge.net/projects/wahyu6070-project-android/files/web/gta5lite-github/gta5lite-public.zip/download
 
 jobs:
-  deploy:
+  # build dan deploy sengaja dipisah. Kalau deploy-pages jalan di job yang sama,
+  # sesaat setelah upload, API kadang belum mencantumkan artifact-nya dan deploy
+  # gagal dengan "No artifacts named github-pages were found" (terjadi 4 kali
+  # berturut-turut pada 2026-11-24). Di job terpisah, artifact baru dicari
+  # setelah job build selesai.
+  build:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Unduh zip situs dari SourceForge
         run: |
@@ -41,10 +43,18 @@ jobs:
 
       - uses: actions/configure-pages@v5
 
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v4
         with:
           path: public
 
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
       - name: Deploy
         id: deployment
         uses: actions/deploy-pages@v4
